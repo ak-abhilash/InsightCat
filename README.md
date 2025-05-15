@@ -3,8 +3,8 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/building%20in-public-brightgreen" alt="build in public">
-  <img src="https://img.shields.io/github/license/YOUR_USERNAME/InsightCat" alt="License">
-  <img src="https://img.shields.io/github/last-commit/YOUR_USERNAME/InsightCat" alt="Last Commit">
+  <img src="https://img.shields.io/github/license/ak-abhilash/InsightCat" alt="License">
+  <img src="https://img.shields.io/github/last-commit/ak-abhilash/InsightCat" alt="Last Commit">
 </p>
 
 ---
