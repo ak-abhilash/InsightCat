@@ -14,21 +14,31 @@ from pathlib import Path
 from dotenv import load_dotenv
 import openai
 import json
+import uvicorn
 
-# Load .env from project root
-load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
+# Load .env from current directory (for Render deployment)
+load_dotenv()
 OPENROUTER_API_KEY = os.getenv("AI_API_KEY")
 
-app = FastAPI()
+app = FastAPI(title="InsightCat API", description="Data Analysis and Visualization API")
 
-# CORS middleware (allow all for development)
+# CORS middleware (more restrictive for production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # In production, replace with your frontend URL
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+
+# Health check endpoint for Render
+@app.get("/")
+async def root():
+    return {"message": "InsightCat API is running!", "status": "healthy"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "api_key_configured": bool(OPENROUTER_API_KEY)}
 
 
 def analyze_column_relevance(df: pd.DataFrame, col: str, col_type: str):
@@ -224,6 +234,10 @@ def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6):
 
 
 def call_llm_insights_from_prompt(prompt: str):
+    if not OPENROUTER_API_KEY:
+        print("Warning: AI_API_KEY not configured")
+        return None
+        
     try:
         client = openai.OpenAI(api_key=OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
         response = client.chat.completions.create(
@@ -473,3 +487,14 @@ Please write **5 cool, casual, human-friendly insights** about the data. Follow 
     except Exception as e:
         print(f"Unexpected error: {e}")
         return JSONResponse(status_code=500, content={"error": f"Server error: {str(e)}"})
+
+
+# Main entry point for running the server
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(
+        "main:app", 
+        host="0.0.0.0", 
+        port=port,
+        reload=False  # Set to False for production
+    )
