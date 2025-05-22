@@ -6,4 +6,5 @@ matplotlib
 seaborn
 python-dotenv
 openai
+python-multipart
 # Add any other dependencies you need for your FastAPI application
