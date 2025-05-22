@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+pandas
+python-multipart
+requests
+# Add any other dependencies you need for your FastAPI backend
