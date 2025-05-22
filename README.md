@@ -35,7 +35,16 @@ InsightCat is an open-source tool that gives you **instant insights from your CS
 3. Download report
 
 ---
+## Setup Instructions
 
+### API Keys Setup
+1. Register for an account at [Deepseek](https://platform.deepseek.com/)
+2. Generate an API key from your account dashboard
+3. Create a `.env` file by copying `.env.example`:
+   ```bash
+   cp .env.example .env
+
+---
 ## 🌍 Join the Mission
 
 This is an open-source project to help data learners, educators, and developers explore data quickly.
