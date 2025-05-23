@@ -7,4 +7,5 @@ seaborn
 python-dotenv
 openai
 python-multipart
+tabulate
 # Add any other dependencies you need for your FastAPI application
