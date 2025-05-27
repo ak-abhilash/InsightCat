@@ -23,11 +23,7 @@ app = FastAPI(title="InsightCat API", description="Data Analysis and Visualizati
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://insight-cat.vercel.app",
-        "https://insight-cat-git-main-abhilashs-projects-4ec41de8.vercel.app",
-        "https://insight-bda8u0e0k-abhilashs-projects-4ec41de8.vercel.app",
-    ],  
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
