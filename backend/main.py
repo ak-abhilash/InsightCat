@@ -17,7 +17,7 @@ import json
 import uvicorn
 
 load_dotenv()
-OPENROUTER_API_KEY = os.getenv("AI_API_KEY")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 app = FastAPI(title="InsightCat API", description="Data Analysis and Visualization API")
 
