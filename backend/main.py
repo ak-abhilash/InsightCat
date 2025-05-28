@@ -26,23 +26,46 @@ origins = [
     "http://localhost",
     "http://localhost:3000",
 ]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,  
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Root health check
 @app.get("/")
 async def root():
-    return {"message": "InsightCat API is running!", "status": "healthy"}
+    return {
+        "message": "InsightCat API is running!",
+        "status": "healthy"
+    }
 
+# API key health check
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "api_key_configured": bool(OPENROUTER_API_KEY)}
+    return {
+        "status": "healthy",
+        "api_key_configured": bool(OPENROUTER_API_KEY)
+    }
 
+@app.post("/upload/")
+async def upload_file(file: UploadFile = File(...)):
+    contents = await file.read()
 
+    #Reject files larger than 100 MB
+    max_size = 100 * 1024 * 1024  # 100 MB
+    if len(contents) > max_size:
+        return JSONResponse(status_code=400, content={"error": "File too large"})
+
+    return {
+        "filename": file.filename,
+        "size_bytes": len(contents),
+        "status": "success"
+    }
+    
 def analyze_column_relevance(df: pd.DataFrame, col: str, col_type: str):
     try:
         non_null_count = df[col].count()
