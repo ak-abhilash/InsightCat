@@ -438,7 +438,11 @@ Please write **5 cool, casual, human-friendly insights** about the data. Follow 
 - Use simple, non-technical language. Make it sound friendly and helpful.
 - Do NOT write insights as paragraphs or multiple insights on one line."""
 
-        insights_raw = call_llm_insights_from_prompt(prompt)
+        try:
+            insights_raw = call_llm_insights_from_prompt(prompt)
+        except Exception as e:
+            print(f"LLM ERROR: {e}")
+        insights_raw = None
         charts = generate_smart_charts(df, max_charts=6)
 
         # Parse insights
@@ -447,14 +451,14 @@ Please write **5 cool, casual, human-friendly insights** about the data. Follow 
             for line in insights_raw.strip().split("\n"):
                 if line.startswith(("📊", "🤔", "💡", "📈", "📉")):
                     insight_blocks.append(line)
-                elif insight_blocks:
+                elif insight_blocks and len(insight_blocks) > 1:
                     insight_blocks[-1] += "\n" + line
                 else:
                     insight_blocks.append(line)
 
-        if not insight_blocks:
-            insight_blocks = ["No insights generated. Please check the dataset or AI key."]
-
+        if len(insight_blocks) == 1:  # Only data quality insight exists
+            insight_blocks.append("No additional insights generated. Please check the dataset or AI key.")
+        
         if not charts:
             charts = [{"title": "No charts generated", "image": ""}]
 
