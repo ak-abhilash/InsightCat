@@ -8,6 +8,14 @@ import {
   Target,
   X,
   Download,
+  CheckCircle,
+  AlertTriangle,
+  AlertCircle,
+  XCircle,
+  Database,
+  FileText,
+  Copy,
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +25,8 @@ const App = () => {
   const [file, setFile] = useState(null);
   const [insights, setInsights] = useState("");
   const [charts, setCharts] = useState([]);
+  const [dataQuality, setDataQuality] = useState(null);
+  const [fileInfo, setFileInfo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedChart, setSelectedChart] = useState(null);
 
@@ -24,6 +34,8 @@ const App = () => {
     setFile(e.target.files[0]);
     setInsights("");
     setCharts([]);
+    setDataQuality(null);
+    setFileInfo(null);
     setSelectedChart(null);
   };
 
@@ -54,13 +66,234 @@ const App = () => {
       });
       setInsights(response.data.insights);
       setCharts(response.data.charts || []);
+      setDataQuality(response.data.data_quality);
+      setFileInfo(response.data.file_info);
     } catch (error) {
       console.error(error);
       setInsights("Error fetching insights.");
       setCharts([]);
+      setDataQuality(null);
+      setFileInfo(null);
     } finally {
       setLoading(false);
     }
+  };
+
+  const getQualityStatusConfig = (status) => {
+    switch (status) {
+      case 'excellent':
+        return { 
+          icon: CheckCircle, 
+          color: 'text-green-400', 
+          bgColor: 'bg-green-500/20',
+          borderColor: 'border-green-500/30',
+          label: 'Excellent Quality'
+        };
+      case 'good':
+        return { 
+          icon: CheckCircle, 
+          color: 'text-blue-400', 
+          bgColor: 'bg-blue-500/20',
+          borderColor: 'border-blue-500/30',
+          label: 'Good Quality'
+        };
+      case 'needs_attention':
+        return { 
+          icon: AlertTriangle, 
+          color: 'text-yellow-400', 
+          bgColor: 'bg-yellow-500/20',
+          borderColor: 'border-yellow-500/30',
+          label: 'Needs Attention'
+        };
+      case 'poor':
+        return { 
+          icon: XCircle, 
+          color: 'text-red-400', 
+          bgColor: 'bg-red-500/20',
+          borderColor: 'border-red-500/30',
+          label: 'Poor Quality'
+        };
+      default:
+        return { 
+          icon: AlertCircle, 
+          color: 'text-gray-400', 
+          bgColor: 'bg-gray-500/20',
+          borderColor: 'border-gray-500/30',
+          label: 'Unknown Quality'
+        };
+    }
+  };
+
+  const renderDataQuality = () => {
+    if (!dataQuality) return null;
+
+    const statusConfig = getQualityStatusConfig(dataQuality.status);
+    const StatusIcon = statusConfig.icon;
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
+            <Database className="w-4 h-4 text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-white">Data Overview</h2>
+        </div>
+        
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* File Information */}
+          <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                <FileText className="w-5 h-5 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">File Information</h3>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Filename:</span>
+                <span className="text-white font-medium">{fileInfo?.filename || 'Unknown'}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">File Type:</span>
+                <span className="text-white font-medium">{fileInfo?.file_type || 'Unknown'}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Total Rows:</span>
+                <span className="text-white font-medium">{dataQuality.total_rows?.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Total Columns:</span>
+                <span className="text-white font-medium">{dataQuality.total_columns}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Data Quality Score */}
+          <div className={`bg-slate-900/80 backdrop-blur-sm border ${statusConfig.borderColor} rounded-xl p-6`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`w-10 h-10 ${statusConfig.bgColor} rounded-lg flex items-center justify-center`}>
+                <StatusIcon className={`w-5 h-5 ${statusConfig.color}`} />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Quality Assessment</h3>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-white mb-1">{dataQuality.quality_score}%</div>
+                <div className={`text-sm font-medium ${statusConfig.color}`}>{statusConfig.label}</div>
+              </div>
+              
+              <div className="w-full bg-slate-700/50 rounded-full h-2">
+                <div 
+                  className={`h-2 rounded-full transition-all duration-500 ${
+                    dataQuality.quality_score >= 90 ? 'bg-green-500' :
+                    dataQuality.quality_score >= 70 ? 'bg-blue-500' :
+                    dataQuality.quality_score >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                  }`}
+                  style={{ width: `${dataQuality.quality_score}%` }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Data Issues */}
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Missing Values */}
+          <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Missing Values</h3>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Total Missing:</span>
+                <span className="text-white font-medium">{dataQuality.missing_values?.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Percentage:</span>
+                <span className={`font-medium ${
+                  dataQuality.missing_percentage > 20 ? 'text-red-400' :
+                  dataQuality.missing_percentage > 10 ? 'text-yellow-400' : 'text-green-400'
+                }`}>
+                  {dataQuality.missing_percentage}%
+                </span>
+              </div>
+              
+              {Object.keys(dataQuality.columns_with_missing || {}).length > 0 && (
+                <div className="mt-4">
+                  <p className="text-slate-400 text-sm mb-2">Affected Columns:</p>
+                  <div className="max-h-24 overflow-y-auto space-y-1">
+                    {Object.entries(dataQuality.columns_with_missing).slice(0, 5).map(([col, count]) => (
+                      <div key={col} className="flex justify-between text-sm">
+                        <span className="text-slate-300 truncate">{col}</span>
+                        <span className="text-slate-400">{count}</span>
+                      </div>
+                    ))}
+                    {Object.keys(dataQuality.columns_with_missing).length > 5 && (
+                      <div className="text-xs text-slate-500">
+                        +{Object.keys(dataQuality.columns_with_missing).length - 5} more columns
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Duplicate Rows */}
+          <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
+                <Copy className="w-5 h-5 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Duplicate Rows</h3>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Total Duplicates:</span>
+                <span className="text-white font-medium">{dataQuality.duplicate_rows?.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Percentage:</span>
+                <span className={`font-medium ${
+                  dataQuality.duplicate_percentage > 10 ? 'text-red-400' :
+                  dataQuality.duplicate_percentage > 5 ? 'text-yellow-400' : 'text-green-400'
+                }`}>
+                  {dataQuality.duplicate_percentage}%
+                </span>
+              </div>
+              
+              <div className="mt-4 p-3 bg-slate-800/50 rounded-lg">
+                <div className="flex items-center gap-2 text-sm">
+                  {dataQuality.duplicate_percentage === 0 ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 text-green-400" />
+                      <span className="text-green-400">No duplicates found</span>
+                    </>
+                  ) : dataQuality.duplicate_percentage < 5 ? (
+                    <>
+                      <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                      <span className="text-yellow-400">Low duplication</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4 text-red-400" />
+                      <span className="text-red-400">High duplication</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderInsights = () => {
@@ -223,6 +456,9 @@ const App = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Data Quality Section */}
+          {dataQuality && renderDataQuality()}
 
           {/* Insights */}
           {insights && (
