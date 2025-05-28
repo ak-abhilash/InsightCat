@@ -377,30 +377,44 @@ async def upload_file(file: UploadFile = File(...)):
             dtypes_md_str = "Could not generate column types summary"
 
         # Generate data quality summary
-        total_duplicates = len(df) - len(df.drop_duplicates())
-        total_nulls = df.isnull().sum().sum()
-        total_cells = len(df) * len(df.columns)
-        null_percentage = (total_nulls / total_cells) * 100 if total_cells > 0 else 0
-        duplicate_percentage = (total_duplicates / len(df)) * 100 if len(df) > 0 else 0
-        
-        # Column-wise null analysis
-        null_by_column = df.isnull().sum()
-        columns_with_nulls = null_by_column[null_by_column > 0].to_dict()
-        
-        # Quality score calculation (0-100)
-        quality_score = max(0, 100 - null_percentage - duplicate_percentage)
-        
-        data_quality = {
-            "total_rows": len(df),
-            "total_columns": len(df.columns),
-            "duplicate_rows": total_duplicates,
-            "duplicate_percentage": round(duplicate_percentage, 2),
-            "missing_values": total_nulls,
-            "missing_percentage": round(null_percentage, 2),
-            "columns_with_missing": columns_with_nulls,
-            "quality_score": round(quality_score, 1),
-            "status": "excellent" if quality_score >= 90 else "good" if quality_score >= 70 else "needs_attention" if quality_score >= 50 else "poor"
-        }
+        try:
+            total_duplicates = len(df) - len(df.drop_duplicates())
+            total_nulls = int(df.isnull().sum().sum())
+            total_cells = len(df) * len(df.columns)
+            null_percentage = (total_nulls / total_cells) * 100 if total_cells > 0 else 0
+            duplicate_percentage = (total_duplicates / len(df)) * 100 if len(df) > 0 else 0
+            
+            # Column-wise null analysis
+            null_by_column = df.isnull().sum()
+            columns_with_nulls = {str(col): int(count) for col, count in null_by_column.items() if count > 0}
+            
+            # Quality score calculation (0-100)
+            quality_score = max(0, 100 - null_percentage - duplicate_percentage)
+            
+            data_quality = {
+                "total_rows": int(len(df)),
+                "total_columns": int(len(df.columns)),
+                "duplicate_rows": int(total_duplicates),
+                "duplicate_percentage": round(float(duplicate_percentage), 2),
+                "missing_values": total_nulls,
+                "missing_percentage": round(float(null_percentage), 2),
+                "columns_with_missing": columns_with_nulls,
+                "quality_score": round(float(quality_score), 1),
+                "status": "excellent" if quality_score >= 90 else "good" if quality_score >= 70 else "needs_attention" if quality_score >= 50 else "poor"
+            }
+        except Exception as e:
+            print(f"Error calculating data quality: {e}")
+            data_quality = {
+                "total_rows": len(df),
+                "total_columns": len(df.columns),
+                "duplicate_rows": 0,
+                "duplicate_percentage": 0.0,
+                "missing_values": 0,
+                "missing_percentage": 0.0,
+                "columns_with_missing": {},
+                "quality_score": 100.0,
+                "status": "unknown"
+            }
 
         # Generate AI insights
         prompt = f"""You're a professional data analyst. A user has uploaded this dataset sample:
