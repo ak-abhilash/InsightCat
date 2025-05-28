@@ -379,12 +379,28 @@ async def upload_file(file: UploadFile = File(...)):
         # Generate data quality summary
         total_duplicates = len(df) - len(df.drop_duplicates())
         total_nulls = df.isnull().sum().sum()
-        null_percentage = (total_nulls / (len(df) * len(df.columns))) * 100
+        total_cells = len(df) * len(df.columns)
+        null_percentage = (total_nulls / total_cells) * 100 if total_cells > 0 else 0
+        duplicate_percentage = (total_duplicates / len(df)) * 100 if len(df) > 0 else 0
         
-        data_quality_insight = f"""🔍
-📊 Data Quality Check - Found {total_duplicates} duplicate rows and {total_nulls:,} missing values ({null_percentage:.1f}% of all data)
-- Why it matters: Data quality issues can skew your analysis and lead to incorrect conclusions.
-- Suggested action: {'Consider removing duplicates and handling missing values before analysis.' if total_duplicates > 0 or total_nulls > 0 else 'Great! Your data is clean and ready for analysis.'}"""
+        # Column-wise null analysis
+        null_by_column = df.isnull().sum()
+        columns_with_nulls = null_by_column[null_by_column > 0].to_dict()
+        
+        # Quality score calculation (0-100)
+        quality_score = max(0, 100 - null_percentage - duplicate_percentage)
+        
+        data_quality = {
+            "total_rows": len(df),
+            "total_columns": len(df.columns),
+            "duplicate_rows": total_duplicates,
+            "duplicate_percentage": round(duplicate_percentage, 2),
+            "missing_values": total_nulls,
+            "missing_percentage": round(null_percentage, 2),
+            "columns_with_missing": columns_with_nulls,
+            "quality_score": round(quality_score, 1),
+            "status": "excellent" if quality_score >= 90 else "good" if quality_score >= 70 else "needs_attention" if quality_score >= 50 else "poor"
+        }
 
         # Generate AI insights
         prompt = f"""You're a professional data analyst. A user has uploaded this dataset sample:
@@ -412,23 +428,24 @@ Please write **5 cool, casual, human-friendly insights** about the data. Follow 
         charts = generate_smart_charts(df, max_charts=6)
 
         # Parse insights
-        insight_blocks = [data_quality_insight]  # Start with data quality insight
+        insight_blocks = []
         if insights_raw:
             for line in insights_raw.strip().split("\n"):
                 if line.startswith(("📊", "🤔", "💡", "📈", "📉")):
                     insight_blocks.append(line)
-                elif insight_blocks and len(insight_blocks) > 1:  # Don't append to data quality insight
+                elif insight_blocks:
                     insight_blocks[-1] += "\n" + line
                 else:
                     insight_blocks.append(line)
 
-        if len(insight_blocks) == 1:  # Only data quality insight exists
-            insight_blocks.append("No additional insights generated. Please check the dataset or AI key.")
+        if not insight_blocks:
+            insight_blocks = ["No insights generated. Please check the dataset or AI key."]
 
         if not charts:
             charts = [{"title": "No charts generated", "image": ""}]
 
         return {
+            "data_quality": data_quality,
             "insights": insight_blocks,
             "charts": charts,
             "file_info": {
