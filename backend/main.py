@@ -206,6 +206,83 @@ def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6):
     
     return charts
 
+def generate_data_overview_insights(df: pd.DataFrame, data_quality: dict):
+    """Generate fallback insights based on data analysis when LLM is unavailable"""
+    insights = []
+    
+    try:
+        # Insight 1: Dataset size and structure
+        rows, cols = len(df), len(df.columns)
+        if rows > 10000:
+            size_desc = "large dataset"
+        elif rows > 1000:
+            size_desc = "medium-sized dataset"
+        else:
+            size_desc = "compact dataset"
+        
+        insights.append(f"🔍\n📊 Dataset Structure - This {size_desc} contains {rows:,} rows and {cols} columns.\n- Why it matters: Understanding data scale helps determine analysis approach.\n- Suggested action: Consider sampling for faster analysis if dataset is very large.")
+        
+        # Insight 2: Data quality assessment
+        quality_score = data_quality.get("quality_score", 100)
+        missing_pct = data_quality.get("missing_percentage", 0)
+        
+        if quality_score >= 90:
+            quality_desc = "excellent data quality"
+        elif quality_score >= 70:
+            quality_desc = "good data quality"
+        else:
+            quality_desc = "data quality issues detected"
+        
+        insights.append(f"🔍\n📊 Data Quality - Your dataset shows {quality_desc} with {missing_pct:.1f}% missing values.\n- Why it matters: Clean data leads to more reliable analysis results.\n- Suggested action: {'Great job! Your data is ready for analysis.' if quality_score >= 90 else 'Consider cleaning missing values before analysis.'}")
+        
+        # Insight 3: Column types analysis
+        numeric_cols = len(df.select_dtypes(include=['number']).columns)
+        text_cols = len(df.select_dtypes(include=['object']).columns)
+        
+        if numeric_cols > text_cols:
+            col_desc = "primarily numerical data"
+        elif text_cols > numeric_cols:
+            col_desc = "mostly categorical/text data"
+        else:
+            col_desc = "balanced mix of data types"
+        
+        insights.append(f"🔍\n📊 Data Composition - Your dataset has {col_desc} ({numeric_cols} numeric, {text_cols} text columns).\n- Why it matters: Data types determine which analysis methods work best.\n- Suggested action: {'Focus on statistical analysis and trends.' if numeric_cols > text_cols else 'Consider frequency analysis and categorization.'}")
+        
+        # Insight 4: Potential patterns
+        duplicate_pct = data_quality.get("duplicate_percentage", 0)
+        if duplicate_pct > 5:
+            insights.append(f"🔍\n📊 Data Patterns - Found {duplicate_pct:.1f}% duplicate rows in your dataset.\n- Why it matters: Duplicates can skew analysis results.\n- Suggested action: Review and remove duplicates before analysis.")
+        else:
+            # Look for interesting columns
+            interesting_cols = []
+            for col in df.columns[:5]:  # Check first 5 columns
+                if df[col].dtype == 'object':
+                    unique_ratio = len(df[col].unique()) / len(df)
+                    if 0.1 < unique_ratio < 0.9:  # Good variation
+                        interesting_cols.append(col)
+            
+            if interesting_cols:
+                insights.append(f"🔍\n📊 Key Variables - Columns like '{interesting_cols[0]}' show good variation for analysis.\n- Why it matters: Variables with good distribution provide meaningful insights.\n- Suggested action: Focus analysis on these well-distributed variables.")
+            else:
+                insights.append(f"🔍\n📊 Data Uniqueness - Your dataset has minimal duplicates ({duplicate_pct:.1f}%), indicating clean data entry.\n- Why it matters: Unique records ensure accurate analysis.\n- Suggested action: Proceed with confidence in your data integrity.")
+        
+        # Insight 5: Analysis potential
+        if numeric_cols >= 2:
+            insights.append(f"🔍\n📊 Analysis Potential - With {numeric_cols} numeric columns, you can perform correlation and trend analysis.\n- Why it matters: Multiple numeric variables enable statistical relationships discovery.\n- Suggested action: Look for correlations between numeric variables.")
+        elif text_cols >= 2:
+            insights.append(f"🔍\n📊 Analysis Potential - With {text_cols} categorical columns, you can perform segmentation analysis.\n- Why it matters: Categories help identify patterns across different groups.\n- Suggested action: Compare metrics across different category combinations.")
+        else:
+            insights.append(f"🔍\n📊 Analysis Potential - Your dataset is ready for exploratory analysis.\n- Why it matters: Understanding your data structure guides analysis strategy.\n- Suggested action: Start with basic statistics and distributions.")
+    
+    except Exception as e:
+        print(f"Error generating data overview insights: {e}")
+        # Fallback insight
+        insights = [
+            "🔍\n📊 Dataset Loaded - Your data has been successfully processed and is ready for analysis.\n- Why it matters: Clean data upload is the first step to insights.\n- Suggested action: Explore the charts below to understand your data patterns."
+        ]
+    
+    return insights
+
 def call_llm_insights_from_prompt(prompt: str):
     if not OPENROUTER_API_KEY:
         print("Warning: AI_API_KEY not configured")
@@ -219,7 +296,8 @@ def call_llm_insights_from_prompt(prompt: str):
                 {"role": "system", "content": "You are a helpful, business-friendly data analyst."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7
+            temperature=0.7,
+            timeout=30  # Add timeout to prevent hanging
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -416,8 +494,17 @@ async def upload_file(file: UploadFile = File(...)):
                 "status": "unknown"
             }
 
-        # Generate AI insights
-        prompt = f"""You're a professional data analyst. A user has uploaded this dataset sample:
+        # Generate charts first (always show these)
+        charts = generate_smart_charts(df, max_charts=6)
+        if not charts:
+            charts = [{"title": "No suitable columns found for visualization", "image": "", "insight": "Dataset may need preprocessing for better charts"}]
+
+        # Try to generate AI insights
+        insights_raw = None
+        llm_success = False
+        
+        if OPENROUTER_API_KEY:  # Only try LLM if API key is available
+            prompt = f"""You're a professional data analyst. A user has uploaded this dataset sample:
 
 {df_sample.to_markdown(index=False)}
 
@@ -438,29 +525,54 @@ Please write **5 cool, casual, human-friendly insights** about the data. Follow 
 - Use simple, non-technical language. Make it sound friendly and helpful.
 - Do NOT write insights as paragraphs or multiple insights on one line."""
 
-        try:
-            insights_raw = call_llm_insights_from_prompt(prompt)
-        except Exception as e:
-            print(f"LLM ERROR: {e}")
-        insights_raw = None
-        charts = generate_smart_charts(df, max_charts=6)
-
-        # Parse insights
-        insight_blocks = []
-        if insights_raw:
-            for line in insights_raw.strip().split("\n"):
-                if line.startswith(("📊", "🤔", "💡", "📈", "📉")):
-                    insight_blocks.append(line)
-                elif insight_blocks and len(insight_blocks) > 1:
-                    insight_blocks[-1] += "\n" + line
+            try:
+                insights_raw = call_llm_insights_from_prompt(prompt)
+                if insights_raw and len(insights_raw.strip()) > 50:  # Check if we got substantial response
+                    llm_success = True
+                    print("LLM insights generated successfully")
                 else:
-                    insight_blocks.append(line)
+                    print("LLM returned empty or minimal response")
+            except Exception as e:
+                print(f"LLM ERROR during processing: {e}")
 
-        if len(insight_blocks) == 1:  # Only data quality insight exists
-            insight_blocks.append("No additional insights generated. Please check the dataset or AI key.")
+        # Parse insights or generate fallback
+        insight_blocks = []
         
-        if not charts:
-            charts = [{"title": "No charts generated", "image": ""}]
+        if llm_success and insights_raw:
+            # Parse LLM insights
+            try:
+                current_insight = ""
+                for line in insights_raw.strip().split("\n"):
+                    line = line.strip()
+                    if line.startswith("🔍"):
+                        if current_insight:
+                            insight_blocks.append(current_insight.strip())
+                        current_insight = line + "\n"
+                    elif current_insight:
+                        current_insight += line + "\n"
+                    elif line.startswith(("📊", "🤔", "💡", "📈", "📉")):
+                        current_insight = "🔍\n" + line + "\n"
+                
+                if current_insight:
+                    insight_blocks.append(current_insight.strip())
+                
+                # Validate parsed insights
+                if len(insight_blocks) < 3:
+                    print("Insufficient insights parsed, falling back to data overview")
+                    insight_blocks = generate_data_overview_insights(df, data_quality)
+            except Exception as e:
+                print(f"Error parsing LLM insights: {e}")
+                insight_blocks = generate_data_overview_insights(df, data_quality)
+        else:
+            # Generate fallback insights based on data analysis
+            print("Generating fallback data overview insights")
+            insight_blocks = generate_data_overview_insights(df, data_quality)
+
+        # Ensure we have at least some insights
+        if not insight_blocks:
+            insight_blocks = [
+                "🔍\n📊 Dataset Processed - Your data has been successfully loaded and analyzed.\n- Why it matters: Clean data upload enables effective analysis.\n- Suggested action: Review the charts below to explore your data patterns."
+            ]
 
         return {
             "data_quality": data_quality,
@@ -471,7 +583,8 @@ Please write **5 cool, casual, human-friendly insights** about the data. Follow 
                 "rows": len(df),
                 "columns": len(df.columns),
                 "file_type": file.filename.split('.')[-1].upper()
-            }
+            },
+            "llm_used": llm_success  # Optional: let frontend know if AI insights were used
         }
 
     except Exception as e:
