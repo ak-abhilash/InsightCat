@@ -10,11 +10,10 @@ import seaborn as sns
 import base64
 import io
 import os
-from pathlib import Path
-from dotenv import load_dotenv
 import openai
 import json
 import uvicorn
+from dotenv import load_dotenv
 
 load_dotenv()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
@@ -31,41 +30,18 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,  
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
-# Root health check
 @app.get("/")
 async def root():
-    return {
-        "message": "InsightCat API is running!",
-        "status": "healthy"
-    }
+    return {"message": "InsightCat API is running!", "status": "healthy"}
 
-# API key health check
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "healthy",
-        "api_key_configured": bool(OPENROUTER_API_KEY)
-    }
+    return {"status": "healthy", "api_key_configured": bool(OPENROUTER_API_KEY)}
 
-@app.post("/upload/")
-async def upload_file(file: UploadFile = File(...)):
-    contents = await file.read()
-
-    #Reject files larger than 100 MB
-    max_size = 100 * 1024 * 1024  # 100 MB
-    if len(contents) > max_size:
-        return JSONResponse(status_code=400, content={"error": "File too large"})
-
-    return {
-        "filename": file.filename,
-        "size_bytes": len(contents),
-        "status": "success"
-    }
-    
 def analyze_column_relevance(df: pd.DataFrame, col: str, col_type: str):
     try:
         non_null_count = df[col].count()
@@ -120,7 +96,6 @@ def analyze_column_relevance(df: pd.DataFrame, col: str, col_type: str):
     
     return False, None, "Unknown column type"
 
-
 def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6):
     charts = []
     chart_candidates = []
@@ -128,6 +103,7 @@ def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6):
     numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
     categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
     
+    # Analyze numeric columns
     for col in numeric_cols:
         should_viz, chart_type, reason = analyze_column_relevance(df, col, 'numeric')
         if should_viz:
@@ -143,6 +119,7 @@ def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6):
                 'data_type': 'numeric'
             })
     
+    # Analyze categorical columns
     for col in categorical_cols:
         should_viz, chart_type, reason = analyze_column_relevance(df, col, 'categorical')
         if should_viz:
@@ -165,8 +142,6 @@ def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6):
     
     chart_candidates.sort(key=lambda x: x['priority'], reverse=True)
     selected_charts = chart_candidates[:max_charts]
-    
-    print(f"Selected {len(selected_charts)} charts out of {len(chart_candidates)} candidates")
     
     for chart_info in selected_charts:
         try:
@@ -231,7 +206,6 @@ def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6):
     
     return charts
 
-
 def call_llm_insights_from_prompt(prompt: str):
     if not OPENROUTER_API_KEY:
         print("Warning: AI_API_KEY not configured")
@@ -251,7 +225,6 @@ def call_llm_insights_from_prompt(prompt: str):
     except Exception as e:
         print(f"LLM ERROR: {e}")
         return None
-
 
 def read_uploaded_file(file: UploadFile):
     if not file.filename:
@@ -274,7 +247,7 @@ def read_uploaded_file(file: UploadFile):
             
             try:
                 df = pd.read_excel(excel_buffer, engine='openpyxl')
-            except Exception as e:
+            except Exception:
                 excel_buffer.seek(0)
                 try:
                     df = pd.read_excel(excel_buffer, engine='xlrd')
@@ -299,6 +272,7 @@ def read_uploaded_file(file: UploadFile):
             try:
                 json_data = json.loads(content_str)
             except json.JSONDecodeError as e:
+                # Try JSONL format
                 try:
                     json_objects = []
                     for line in content_str.split('\n'):
@@ -307,6 +281,7 @@ def read_uploaded_file(file: UploadFile):
                             json_objects.append(json.loads(line))
                     json_data = json_objects
                 except json.JSONDecodeError:
+                    # Try fixing malformed JSON
                     try:
                         cleaned_content = content_str.rstrip(',').rstrip()
                         if not cleaned_content.endswith('}') and not cleaned_content.endswith(']'):
@@ -316,8 +291,9 @@ def read_uploaded_file(file: UploadFile):
                                 cleaned_content += '}'
                         json_data = json.loads(cleaned_content)
                     except json.JSONDecodeError:
-                        raise ValueError(f"Invalid JSON format. Please ensure your JSON file is properly formatted. Error: {str(e)}")
+                        raise ValueError(f"Invalid JSON format: {str(e)}")
             
+            # Convert JSON to DataFrame
             try:
                 if isinstance(json_data, list):
                     if len(json_data) == 0:
@@ -354,10 +330,17 @@ def read_uploaded_file(file: UploadFile):
     
     return df
 
-
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)):
     try:
+        # File size check
+        contents = await file.read()
+        max_size = 100 * 1024 * 1024  # 100 MB
+        if len(contents) > max_size:
+            return JSONResponse(status_code=400, content={"error": "File is larger than 100 MB."})
+        
+        # Reset file pointer and read
+        await file.seek(0)
         try:
             df = read_uploaded_file(file)
         except ValueError as e:
@@ -368,11 +351,13 @@ async def upload_file(file: UploadFile = File(...)):
         if df.empty:
             return JSONResponse(status_code=400, content={"error": "Uploaded file contains no data."})
 
+        # Clean data
         df = df.dropna(how='all').dropna(axis=1, how='all')
         
         if df.empty:
             return JSONResponse(status_code=400, content={"error": "No valid data found after cleaning."})
 
+        # Convert complex objects to strings
         for col in df.columns:
             sample_values = df[col].dropna().head(5)
             if len(sample_values) > 0:
@@ -382,6 +367,7 @@ async def upload_file(file: UploadFile = File(...)):
 
         df_sample = df.iloc[:5, :20]
         
+        # Generate data types summary
         try:
             dtypes_md = df.dtypes.reset_index()
             dtypes_md.columns = ["Column", "Type"]
@@ -390,13 +376,22 @@ async def upload_file(file: UploadFile = File(...)):
             print(f"Error creating dtypes summary: {e}")
             dtypes_md_str = "Could not generate column types summary"
 
-        prompt = f"""
-You're a professional data analyst. A user has uploaded this dataset sample:
+        # Generate data quality summary
+        total_duplicates = len(df) - len(df.drop_duplicates())
+        total_nulls = df.isnull().sum().sum()
+        null_percentage = (total_nulls / (len(df) * len(df.columns))) * 100
+        
+        data_quality_insight = f"""🔍
+📊 Data Quality Check - Found {total_duplicates} duplicate rows and {total_nulls:,} missing values ({null_percentage:.1f}% of all data)
+- Why it matters: Data quality issues can skew your analysis and lead to incorrect conclusions.
+- Suggested action: {'Consider removing duplicates and handling missing values before analysis.' if total_duplicates > 0 or total_nulls > 0 else 'Great! Your data is clean and ready for analysis.'}"""
+
+        # Generate AI insights
+        prompt = f"""You're a professional data analyst. A user has uploaded this dataset sample:
 
 {df_sample.to_markdown(index=False)}
 
 Dataset columns and types:
-
 {dtypes_md_str}
 
 Dataset info:
@@ -411,24 +406,24 @@ Please write **5 cool, casual, human-friendly insights** about the data. Follow 
 - Then on a new line, write: "- Suggested action:" followed by a short sentence.
 - Put a blank line between insights (two newlines total).
 - Use simple, non-technical language. Make it sound friendly and helpful.
-- Do NOT write insights as paragraphs or multiple insights on one line.
-"""
+- Do NOT write insights as paragraphs or multiple insights on one line."""
 
         insights_raw = call_llm_insights_from_prompt(prompt)
         charts = generate_smart_charts(df, max_charts=6)
 
-        insight_blocks = []
+        # Parse insights
+        insight_blocks = [data_quality_insight]  # Start with data quality insight
         if insights_raw:
             for line in insights_raw.strip().split("\n"):
                 if line.startswith(("📊", "🤔", "💡", "📈", "📉")):
                     insight_blocks.append(line)
-                elif insight_blocks:
+                elif insight_blocks and len(insight_blocks) > 1:  # Don't append to data quality insight
                     insight_blocks[-1] += "\n" + line
                 else:
                     insight_blocks.append(line)
 
-        if not insight_blocks:
-            insight_blocks = ["No insights generated. Please check the dataset or AI key."]
+        if len(insight_blocks) == 1:  # Only data quality insight exists
+            insight_blocks.append("No additional insights generated. Please check the dataset or AI key.")
 
         if not charts:
             charts = [{"title": "No charts generated", "image": ""}]
@@ -448,12 +443,6 @@ Please write **5 cool, casual, human-friendly insights** about the data. Follow 
         print(f"Unexpected error: {e}")
         return JSONResponse(status_code=500, content={"error": f"Server error: {str(e)}"})
 
-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(
-        "main:app", 
-        host="0.0.0.0", 
-        port=port,
-        reload=False
-    )
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
