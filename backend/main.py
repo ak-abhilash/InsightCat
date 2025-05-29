@@ -107,6 +107,67 @@ def get_data_overview(df):
         }
 
 
+def get_data_quality(df):
+    """Generate data quality assessment that matches frontend expectations"""
+    try:
+        total_cells = len(df) * len(df.columns)
+        total_missing = df.isnull().sum().sum()
+        missing_percentage = round((total_missing / total_cells) * 100, 1) if total_cells > 0 else 0
+        
+        # Get duplicate rows
+        duplicate_rows = df.duplicated().sum()
+        duplicate_percentage = round((duplicate_rows / len(df)) * 100, 1) if len(df) > 0 else 0
+        
+        # Calculate quality score
+        quality_score = 100
+        quality_score -= min(missing_percentage * 2, 40)  # Penalize missing values
+        quality_score -= min(duplicate_percentage * 3, 30)  # Penalize duplicates
+        quality_score = max(0, round(quality_score))
+        
+        # Determine status
+        if quality_score >= 90:
+            status = 'excellent'
+        elif quality_score >= 70:
+            status = 'good'
+        elif quality_score >= 50:
+            status = 'needs_attention'
+        else:
+            status = 'poor'
+        
+        # Get columns with missing values
+        columns_with_missing = {}
+        for col in df.columns:
+            missing_count = df[col].isnull().sum()
+            if missing_count > 0:
+                columns_with_missing[col] = int(missing_count)
+        
+        return {
+            "total_rows": len(df),
+            "total_columns": len(df.columns),
+            "missing_values": int(total_missing),
+            "missing_percentage": missing_percentage,
+            "duplicate_rows": int(duplicate_rows),
+            "duplicate_percentage": duplicate_percentage,
+            "quality_score": quality_score,
+            "status": status,
+            "columns_with_missing": columns_with_missing
+        }
+        
+    except Exception as e:
+        print(f"Error calculating data quality: {e}")
+        return {
+            "total_rows": len(df) if df is not None else 0,
+            "total_columns": len(df.columns) if df is not None else 0,
+            "missing_values": 0,
+            "missing_percentage": 0,
+            "duplicate_rows": 0,
+            "duplicate_percentage": 0,
+            "quality_score": 0,
+            "status": "unknown",
+            "columns_with_missing": {}
+        }
+
+
 def analyze_column_relevance(df: pd.DataFrame, col: str, col_type: str):
     try:
         non_null_count = df[col].count()
@@ -421,8 +482,9 @@ async def upload_file(file: UploadFile = File(...)):
                 if isinstance(first_val, (dict, list)):
                     df[col] = df[col].astype(str)
 
-        # Generate data overview
+        # Generate data overview and quality
         overview = get_data_overview(df)
+        data_quality = get_data_quality(df)
 
         df_sample = df.iloc[:5, :20]
         
@@ -481,6 +543,7 @@ Please write **5 cool, casual, human-friendly insights** about the data. Follow 
             "insights": insight_blocks,
             "charts": charts,
             "overview": overview,
+            "data_quality": data_quality,  # Added this line
             "file_info": {
                 "filename": file.filename,
                 "rows": len(df),
