@@ -43,6 +43,70 @@ async def health_check():
     return {"status": "healthy", "api_key_configured": bool(OPENROUTER_API_KEY)}
 
 
+def get_data_overview(df):
+    """Generate a comprehensive data overview"""
+    try:
+        overview = {
+            "total_rows": len(df),
+            "total_columns": len(df.columns),
+            "column_info": []
+        }
+        
+        for col in df.columns:
+            try:
+                col_info = {
+                    "name": str(col),
+                    "type": "text",
+                    "non_null_count": int(df[col].notna().sum()),
+                    "null_count": int(df[col].isna().sum()),
+                    "unique_count": 0
+                }
+                
+                # Try to get unique count safely
+                try:
+                    col_info["unique_count"] = int(df[col].nunique())
+                except:
+                    col_info["unique_count"] = 0
+                
+                # Determine column type
+                if df[col].dtype in ['int64', 'float64', 'int32', 'float32']:
+                    col_info["type"] = "numeric"
+                elif pd.api.types.is_datetime64_any_dtype(df[col]):
+                    col_info["type"] = "datetime"
+                else:
+                    # Check if it's numeric but stored as object
+                    try:
+                        numeric_version = pd.to_numeric(df[col], errors='coerce')
+                        if numeric_version.notna().sum() > len(df) * 0.5:
+                            col_info["type"] = "numeric"
+                        else:
+                            col_info["type"] = "categorical"
+                    except:
+                        col_info["type"] = "categorical"
+                
+                overview["column_info"].append(col_info)
+                
+            except Exception as e:
+                # If anything fails for this column, add basic info
+                overview["column_info"].append({
+                    "name": str(col),
+                    "type": "text",
+                    "non_null_count": 0,
+                    "null_count": len(df),
+                    "unique_count": 0
+                })
+        
+        return overview
+        
+    except Exception as e:
+        # Return minimal overview if everything fails
+        return {
+            "total_rows": len(df) if df is not None else 0,
+            "total_columns": len(df.columns) if df is not None else 0,
+            "column_info": []
+        }
+
+
 def analyze_column_relevance(df: pd.DataFrame, col: str, col_type: str):
     try:
         non_null_count = df[col].count()
@@ -357,6 +421,9 @@ async def upload_file(file: UploadFile = File(...)):
                 if isinstance(first_val, (dict, list)):
                     df[col] = df[col].astype(str)
 
+        # Generate data overview
+        overview = get_data_overview(df)
+
         df_sample = df.iloc[:5, :20]
         
         try:
@@ -413,6 +480,7 @@ Please write **5 cool, casual, human-friendly insights** about the data. Follow 
         return {
             "insights": insight_blocks,
             "charts": charts,
+            "overview": overview,
             "file_info": {
                 "filename": file.filename,
                 "rows": len(df),
