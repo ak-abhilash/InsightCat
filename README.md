@@ -86,9 +86,9 @@ This project is licensed under the MIT License.
 
 ## 🙏 Acknowledgments
 
-Built with ❤️ for the open-source community
-Powered by OpenRouter and modern web technologies
-Inspired by the need for accessible data analysis tools
+* Built with ❤️ for the open-source community
+* Powered by OpenRouter and modern web technologies
+* Inspired by the need for accessible data analysis tools
 
 
 <p align="center">
