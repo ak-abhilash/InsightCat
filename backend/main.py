@@ -74,7 +74,7 @@ def get_data_overview(df):
                 elif pd.api.types.is_datetime64_any_dtype(df[col]):
                     col_info["type"] = "datetime"
                 else:
-                    # Check if it's numeric but stored as object
+                
                     try:
                         numeric_version = pd.to_numeric(df[col], errors='coerce')
                         if numeric_version.notna().sum() > len(df) * 0.5:
@@ -87,7 +87,6 @@ def get_data_overview(df):
                 overview["column_info"].append(col_info)
                 
             except Exception as e:
-                # If anything fails for this column, add basic info
                 overview["column_info"].append({
                     "name": str(col),
                     "type": "text",
@@ -99,7 +98,6 @@ def get_data_overview(df):
         return overview
         
     except Exception as e:
-        # Return minimal overview if everything fails
         return {
             "total_rows": len(df) if df is not None else 0,
             "total_columns": len(df.columns) if df is not None else 0,
@@ -120,8 +118,8 @@ def get_data_quality(df):
         
         # Calculate quality score
         quality_score = 100
-        quality_score -= min(missing_percentage * 2, 40)  # Penalize missing values
-        quality_score -= min(duplicate_percentage * 3, 30)  # Penalize duplicates
+        quality_score -= min(missing_percentage * 2, 40)  
+        quality_score -= min(duplicate_percentage * 3, 30)
         quality_score = max(0, round(quality_score))
         
         # Determine status
@@ -543,7 +541,7 @@ Please write **5 cool, casual, human-friendly insights** about the data. Follow 
             "insights": insight_blocks,
             "charts": charts,
             "overview": overview,
-            "data_quality": data_quality,  # Added this line
+            "data_quality": data_quality, 
             "file_info": {
                 "filename": file.filename,
                 "rows": len(df),
