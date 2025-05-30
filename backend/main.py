@@ -362,10 +362,10 @@ def read_uploaded_file(file: UploadFile):
     try:
         if file_extension == 'csv':
             try:
-                df = pd.read_csv(file.file, encoding='utf-8')
+                df = pd.read_csv(file.file, encoding='utf-8', low_memory=False, dtype=str)
             except UnicodeDecodeError:
                 file.file.seek(0)
-                df = pd.read_csv(file.file, encoding='latin-1')
+                df = pd.read_csv(file.file, encoding='latin-1', low_memory=False, dtype=str)
         
         elif file_extension in ['xlsx', 'xls']:
             file_content = file.file.read()
@@ -484,7 +484,7 @@ async def upload_file(file: UploadFile = File(...)):
         overview = get_data_overview(df)
         data_quality = get_data_quality(df)
 
-        df_sample = df.iloc[:5, :20]
+        df_sample = df.sample(n=min(5, len(df)), random_state=42).iloc[:, :20]
         
         try:
             dtypes_md = df.dtypes.reset_index()
