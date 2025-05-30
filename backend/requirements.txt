@@ -8,4 +8,5 @@ python-dotenv
 openai
 python-multipart
 tabulate
+psutil
 # Add any other dependencies you need for your FastAPI application
