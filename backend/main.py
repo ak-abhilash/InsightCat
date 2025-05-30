@@ -20,7 +20,6 @@ from typing import Optional, Dict, Any, List, Tuple
 import gc
 import psutil
 
-# Suppress warnings to avoid cluttering logs
 warnings.filterwarnings('ignore')
 
 load_dotenv()
@@ -28,6 +27,7 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 app = FastAPI(title="InsightCat API", description="Data Analysis and Visualization API")
 
+# CORS setup for web deployment
 origins = [
     "https://insight-cat.vercel.app",
     "http://localhost",
@@ -41,10 +41,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Memory management settings
-MAX_ROWS = 50000  # Limit rows to prevent memory issues
-MAX_COLS = 100    # Limit columns
-SAMPLE_SIZE = 1000  # Sample size for analysis
+# Memory management limits to prevent server overload
+MAX_ROWS = 50000
+MAX_COLS = 100
+SAMPLE_SIZE = 1000
 
 @app.get("/")
 async def root():
@@ -56,19 +56,19 @@ async def health_check():
 
 
 def safe_convert_types(df: pd.DataFrame) -> pd.DataFrame:
-    """Safely convert column types to more appropriate ones"""
+    """
+    Attempts to convert string columns to numeric if they contain numeric data.
+    Handles common formatting like commas, dollar signs, percentages.
+    """
     converted_df = df.copy()
     
     for col in converted_df.columns:
         try:
-            # Skip if column is already numeric
             if pd.api.types.is_numeric_dtype(converted_df[col]):
                 continue
                 
-            # Try to convert to numeric if it looks numeric
             sample = converted_df[col].dropna().head(100)
             if len(sample) > 0:
-                # Check if values look numeric
                 numeric_count = 0
                 for val in sample:
                     try:
@@ -76,11 +76,9 @@ def safe_convert_types(df: pd.DataFrame) -> pd.DataFrame:
                         numeric_count += 1
                     except:
                         pass
-                
-                # If more than 70% look numeric, try conversion
+
                 if numeric_count / len(sample) > 0.7:
                     try:
-                        # Clean and convert
                         cleaned = converted_df[col].astype(str).str.replace(',', '').str.replace('$', '').str.replace('%', '')
                         converted_df[col] = pd.to_numeric(cleaned, errors='ignore')
                     except:
@@ -94,7 +92,10 @@ def safe_convert_types(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_data_overview(df: pd.DataFrame) -> Dict[str, Any]:
-    """Generate a comprehensive data overview with better error handling"""
+    """
+    Generates basic statistics about the dataset structure.
+    Returns column info with types, null counts, and unique values.
+    """
     try:
         overview = {
             "total_rows": int(len(df)),
@@ -104,23 +105,21 @@ def get_data_overview(df: pd.DataFrame) -> Dict[str, Any]:
         
         for col in df.columns:
             try:
-                # Get basic stats safely
                 total_count = len(df)
                 non_null_count = int(df[col].notna().sum())
                 null_count = total_count - non_null_count
                 
                 col_info = {
-                    "name": str(col)[:100],  # Limit name length
+                    "name": str(col)[:100],
                     "type": "text",
                     "non_null_count": non_null_count,
                     "null_count": null_count,
                     "unique_count": 0
                 }
                 
-                # Get unique count safely
+                # Calculate unique count with sampling for large datasets
                 try:
                     if non_null_count > 0:
-                        # Sample for large datasets
                         if non_null_count > 10000:
                             sample = df[col].dropna().sample(n=min(10000, non_null_count), random_state=42)
                             estimated_unique = len(sample.unique())
@@ -131,14 +130,14 @@ def get_data_overview(df: pd.DataFrame) -> Dict[str, Any]:
                     print(f"Warning: Could not calculate unique count for {col}: {e}")
                     col_info["unique_count"] = 0
                 
-                # Determine column type more robustly
+                # Determine column type with heuristics
                 try:
                     if pd.api.types.is_numeric_dtype(df[col]):
                         col_info["type"] = "numeric"
                     elif pd.api.types.is_datetime64_any_dtype(df[col]):
                         col_info["type"] = "datetime"
                     else:
-                        # Check if it might be numeric by sampling
+                        # Check if values might be numeric by sampling
                         sample_values = df[col].dropna().head(50)
                         if len(sample_values) > 0:
                             numeric_count = 0
@@ -165,6 +164,7 @@ def get_data_overview(df: pd.DataFrame) -> Dict[str, Any]:
                 
             except Exception as e:
                 print(f"Error processing column {col}: {e}")
+                # Add fallback entry for problematic columns
                 overview["column_info"].append({
                     "name": str(col)[:100],
                     "type": "text",
@@ -185,7 +185,10 @@ def get_data_overview(df: pd.DataFrame) -> Dict[str, Any]:
 
 
 def get_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
-    """Generate data quality assessment with better error handling"""
+    """
+    Calculates data quality metrics including missing values, duplicates,
+    and overall quality score (0-100).
+    """
     try:
         total_rows = len(df)
         total_cols = len(df.columns)
@@ -204,7 +207,7 @@ def get_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
                 "columns_with_missing": {}
             }
         
-        # Calculate missing values safely
+        # Calculate missing values
         try:
             total_missing = int(df.isnull().sum().sum())
             missing_percentage = round((total_missing / total_cells) * 100, 1)
@@ -213,10 +216,9 @@ def get_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
             total_missing = 0
             missing_percentage = 0
         
-        # Get duplicate rows safely
+        # Calculate duplicates with sampling for large datasets
         try:
             if total_rows > 10000:
-                # Sample for large datasets
                 sample_df = df.sample(n=min(5000, total_rows), random_state=42)
                 sample_duplicates = sample_df.duplicated().sum()
                 duplicate_rows = int((sample_duplicates / len(sample_df)) * total_rows)
@@ -229,13 +231,13 @@ def get_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
             duplicate_rows = 0
             duplicate_percentage = 0
         
-        # Calculate quality score
+        # Calculate quality score (0-100)
         quality_score = 100
         quality_score -= min(missing_percentage * 2, 40)  
         quality_score -= min(duplicate_percentage * 3, 30)
         quality_score = max(0, round(quality_score))
         
-        # Determine status
+        # Status based on quality score
         if quality_score >= 90:
             status = 'excellent'
         elif quality_score >= 70:
@@ -245,7 +247,7 @@ def get_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
         else:
             status = 'poor'
         
-        # Get columns with missing values safely
+        # Identify columns with missing values
         columns_with_missing = {}
         try:
             for col in df.columns:
@@ -287,7 +289,10 @@ def get_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
 
 
 def analyze_column_relevance(df: pd.DataFrame, col: str, col_type: str) -> Tuple[bool, Optional[str], str]:
-    """Analyze if a column is suitable for visualization with better error handling"""
+    """
+    Determines if a column is suitable for visualization.
+    Returns (should_visualize, chart_type, reason).
+    """
     try:
         non_null_count = df[col].count()
         total_count = len(df)
@@ -302,7 +307,6 @@ def analyze_column_relevance(df: pd.DataFrame, col: str, col_type: str) -> Tuple
         
         if col_type == 'numeric':
             try:
-                # Get numeric data safely
                 numeric_data = pd.to_numeric(df[col], errors='coerce').dropna()
                 
                 if len(numeric_data) < 3:
@@ -320,6 +324,7 @@ def analyze_column_relevance(df: pd.DataFrame, col: str, col_type: str) -> Tuple
                 except:
                     pass
                 
+                # Choose chart type based on unique value count
                 if unique_count > 50:
                     return True, 'histogram', f"Continuous distribution ({unique_count} unique values)"
                 else:
@@ -331,7 +336,6 @@ def analyze_column_relevance(df: pd.DataFrame, col: str, col_type: str) -> Tuple
                 
         elif col_type == 'categorical':
             try:
-                # Handle categorical data safely
                 sample_data = df[col].dropna()
                 if len(sample_data) > 5000:
                     sample_data = sample_data.sample(n=5000, random_state=42)
@@ -339,7 +343,7 @@ def analyze_column_relevance(df: pd.DataFrame, col: str, col_type: str) -> Tuple
                 try:
                     value_counts = sample_data.value_counts()
                 except (TypeError, ValueError, AttributeError):
-                    # Convert to string if there are issues
+                    # Fallback to string conversion if value_counts fails
                     string_col = sample_data.astype(str)
                     value_counts = string_col.value_counts()
                 
@@ -351,11 +355,11 @@ def analyze_column_relevance(df: pd.DataFrame, col: str, col_type: str) -> Tuple
                 if unique_count < 2:
                     return False, None, "Only one category"
                 
-                # Check if mostly unique (likely IDs)
+                # Skip columns that are mostly unique (likely IDs)
                 if unique_count / len(sample_data) > 0.9:
                     return False, None, "Mostly unique values (likely IDs)"
                 
-                # Check if one category dominates
+                # Skip if one category heavily dominates
                 top_category_pct = value_counts.iloc[0] / len(sample_data) * 100
                 if top_category_pct > 98:
                     return False, None, f"One category dominates ({top_category_pct:.1f}%)"
@@ -374,17 +378,20 @@ def analyze_column_relevance(df: pd.DataFrame, col: str, col_type: str) -> Tuple
 
 
 def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6) -> List[Dict[str, str]]:
-    """Generate charts with better error handling and memory management"""
+    """
+    Automatically generates the most relevant charts based on data analysis.
+    Prioritizes columns with high information content and good distribution.
+    """
     charts = []
     chart_candidates = []
     
     try:
-        # Sample data if too large
+        # Use sample for large datasets to improve performance
         working_df = df
         if len(df) > SAMPLE_SIZE:
             working_df = df.sample(n=SAMPLE_SIZE, random_state=42)
         
-        # Identify column types more safely
+        # Categorize columns by type
         numeric_cols = []
         categorical_cols = []
         
@@ -398,8 +405,8 @@ def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6) -> List[Dict[st
                 print(f"Warning: Could not determine type for column {col}: {e}")
                 categorical_cols.append(col)
         
-        # Analyze numeric columns
-        for col in numeric_cols[:20]:  # Limit columns to process
+        # Analyze numeric columns for visualization potential
+        for col in numeric_cols[:20]: 
             try:
                 should_viz, chart_type, reason = analyze_column_relevance(working_df, col, 'numeric')
                 if should_viz:
@@ -419,7 +426,7 @@ def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6) -> List[Dict[st
                 continue
         
         # Analyze categorical columns
-        for col in categorical_cols[:20]:  # Limit columns to process
+        for col in categorical_cols[:20]:
             try:
                 should_viz, chart_type, reason = analyze_column_relevance(working_df, col, 'categorical')
                 if should_viz:
@@ -434,6 +441,7 @@ def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6) -> List[Dict[st
                             value_counts = sample_col.astype(str).value_counts()
                         
                         if len(value_counts) > 0:
+                            # Calculate entropy as priority metric (higher entropy = more interesting distribution)
                             proportions = [count/len(sample_col) for count in value_counts]
                             entropy = -sum([p * np.log2(p) for p in proportions if p > 0])
                             priority = entropy * len(value_counts)
@@ -452,19 +460,18 @@ def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6) -> List[Dict[st
                 print(f"Error analyzing categorical column {col}: {e}")
                 continue
         
-        # Sort and select top candidates
+        # Sort by priority and select top candidates
         chart_candidates.sort(key=lambda x: x['priority'], reverse=True)
         selected_charts = chart_candidates[:max_charts]
         
         print(f"Selected {len(selected_charts)} charts out of {len(chart_candidates)} candidates")
         
-        # Generate charts
+        # Generate actual chart images
         for chart_info in selected_charts:
             try:
                 col = chart_info['column']
                 chart_type = chart_info['type']
                 
-                # Set up plot style
                 plt.style.use('default')
                 plt.figure(figsize=(10, 6))
                 
@@ -515,6 +522,7 @@ def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6) -> List[Dict[st
                         if len(value_counts) > 0:
                             plt.figure(figsize=(max(8, len(value_counts) * 0.5), 6))
                             
+                            # Truncate long labels
                             labels = [str(label)[:30] + '...' if len(str(label)) > 30 else str(label) 
                                      for label in value_counts.index]
                             
@@ -526,7 +534,7 @@ def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6) -> List[Dict[st
                             plt.gca().invert_yaxis()
                             plt.grid(True, alpha=0.3, axis='x')
                             
-                            # Add value labels
+                            # Add value labels on bars
                             for i, bar in enumerate(bars):
                                 width = bar.get_width()
                                 plt.text(width + max(value_counts.values) * 0.01, 
@@ -537,7 +545,7 @@ def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6) -> List[Dict[st
                         plt.close()
                         continue
                 
-                # Save chart
+                # Save chart as base64 encoded image
                 buf = io.BytesIO()
                 plt.tight_layout()
                 plt.savefig(buf, format="png", dpi=100, bbox_inches='tight', 
@@ -558,7 +566,7 @@ def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6) -> List[Dict[st
                     pass
                 continue
         
-        # Force garbage collection
+        # Clean up memory
         gc.collect()
         
     except Exception as e:
@@ -568,7 +576,10 @@ def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6) -> List[Dict[st
 
 
 def call_llm_insights_from_prompt(prompt: str) -> Optional[str]:
-    """Call LLM with better error handling"""
+    """
+    Calls OpenRouter API to generate AI insights about the dataset.
+    Returns None if API key not configured or request fails.
+    """
     if not OPENROUTER_API_KEY:
         print("Warning: OPENROUTER_API_KEY not configured")
         return None
@@ -592,7 +603,10 @@ def call_llm_insights_from_prompt(prompt: str) -> Optional[str]:
 
 
 def read_uploaded_file(file: UploadFile) -> pd.DataFrame:
-    """Read uploaded file with better error handling and memory management"""
+    """
+    Reads uploaded files (CSV, Excel, JSON) with multiple encoding fallbacks.
+    Applies memory limits and data type optimization.
+    """
     if not file.filename:
         raise ValueError("No filename provided")
     
@@ -600,8 +614,8 @@ def read_uploaded_file(file: UploadFile) -> pd.DataFrame:
     
     try:
         if file_extension == 'csv':
+            # Try multiple encodings for CSV files
             try:
-                # Try UTF-8 first
                 df = pd.read_csv(file.file, encoding='utf-8', low_memory=False, 
                                nrows=MAX_ROWS, dtype=str, on_bad_lines='skip')
             except UnicodeDecodeError:
@@ -619,6 +633,7 @@ def read_uploaded_file(file: UploadFile) -> pd.DataFrame:
             file.file.seek(0)
             excel_buffer = io.BytesIO(file_content)
             
+            # Try different Excel engines
             try:
                 df = pd.read_excel(excel_buffer, engine='openpyxl', nrows=MAX_ROWS)
             except Exception:
@@ -633,6 +648,7 @@ def read_uploaded_file(file: UploadFile) -> pd.DataFrame:
             content = file.file.read()
             file.file.seek(0)
             
+            # Handle different text encodings
             if isinstance(content, bytes):
                 try:
                     content_str = content.decode('utf-8')
@@ -646,7 +662,7 @@ def read_uploaded_file(file: UploadFile) -> pd.DataFrame:
             try:
                 json_data = json.loads(content_str)
             except json.JSONDecodeError:
-                # Try line-by-line JSON
+                # Try line-by-line JSON (JSONL format)
                 try:
                     json_objects = []
                     for line in content_str.split('\n'):
@@ -657,13 +673,12 @@ def read_uploaded_file(file: UploadFile) -> pd.DataFrame:
                 except json.JSONDecodeError:
                     raise ValueError(f"Invalid JSON format. Please ensure your JSON file is properly formatted.")
             
-            # Convert JSON to DataFrame
+            # Convert JSON to DataFrame with different structure handling
             try:
                 if isinstance(json_data, list):
                     if len(json_data) == 0:
                         raise ValueError("JSON file contains an empty array")
                     
-                    # Limit rows
                     if len(json_data) > MAX_ROWS:
                         json_data = json_data[:MAX_ROWS]
                     
@@ -675,10 +690,10 @@ def read_uploaded_file(file: UploadFile) -> pd.DataFrame:
                 elif isinstance(json_data, dict):
                     try:
                         df = pd.DataFrame(json_data)
-                        # Limit rows if too many
                         if len(df) > MAX_ROWS:
                             df = df.head(MAX_ROWS)
                     except ValueError:
+                        # Flatten nested JSON structure
                         df = pd.json_normalize(json_data)
                         if len(df) > MAX_ROWS:
                             df = df.head(MAX_ROWS)
@@ -698,7 +713,7 @@ def read_uploaded_file(file: UploadFile) -> pd.DataFrame:
         else:
             raise ValueError(f"Error reading {file_extension.upper()} file: {str(e)}")
     
-    # Limit columns
+    # Apply column limit
     if len(df.columns) > MAX_COLS:
         df = df.iloc[:, :MAX_COLS]
     
@@ -707,8 +722,12 @@ def read_uploaded_file(file: UploadFile) -> pd.DataFrame:
 
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)):
+    """
+    Main endpoint for file upload and analysis.
+    Returns insights, charts, data overview, and quality metrics.
+    """
     try:
-        # Read and validate file
+        # Read and validate uploaded file
         try:
             df = read_uploaded_file(file)
         except ValueError as e:
@@ -719,7 +738,7 @@ async def upload_file(file: UploadFile = File(...)):
         if df.empty:
             return JSONResponse(status_code=400, content={"error": "Uploaded file contains no data."})
 
-        # Clean data
+        # Clean empty rows and columns
         original_shape = df.shape
         df = df.dropna(how='all').dropna(axis=1, how='all')
         
@@ -728,7 +747,7 @@ async def upload_file(file: UploadFile = File(...)):
 
         print(f"Data shape: {original_shape} -> {df.shape}")
 
-        # Handle complex data types
+        # Handle complex data types (convert dicts/lists to strings)
         for col in df.columns:
             try:
                 sample_values = df[col].dropna().head(10)
@@ -740,13 +759,13 @@ async def upload_file(file: UploadFile = File(...)):
                 print(f"Warning: Could not process column {col}: {e}")
                 continue
 
-        # Convert types safely
+        # Attempt automatic type conversion
         try:
             df = safe_convert_types(df)
         except Exception as e:
             print(f"Warning: Type conversion failed: {e}")
 
-        # Generate analysis components
+        # Generate analysis components with fallbacks
         try:
             overview = get_data_overview(df)
         except Exception as e:
@@ -780,7 +799,7 @@ async def upload_file(file: UploadFile = File(...)):
             # Create dtypes summary safely
             try:
                 dtypes_info = []
-                for col in df.columns[:20]:  # Limit columns
+                for col in df.columns[:20]:  
                     try:
                         col_type = str(df[col].dtype)
                         dtypes_info.append({"Column": str(col)[:50], "Type": col_type})
@@ -894,7 +913,7 @@ Please write **5 cool, casual, human-friendly insights** about the data. Follow 
             status_code=500, 
             content={
                 "error": f"Server error during processing. Please try with a smaller dataset or different format.",
-                "details": str(e)[:200]  # Limit error message length
+                "details": str(e)[:200] 
             }
         )
 
