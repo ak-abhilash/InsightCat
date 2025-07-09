@@ -9,4 +9,5 @@ openai
 python-multipart
 tabulate
 psutil
+slowapi
 # Add any other dependencies you need for your FastAPI application

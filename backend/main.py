@@ -19,6 +19,11 @@ import warnings
 from typing import Optional, Dict, Any, List, Tuple
 import gc
 import psutil
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from fastapi.responses import PlainTextResponse
+from slowapi.decorator import limiter
 
 warnings.filterwarnings('ignore')
 
@@ -26,6 +31,21 @@ load_dotenv()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 app = FastAPI(title="InsightCat API", description="Data Analysis and Visualization API")
+
+@app.on_event("startup")
+async def verify_api_key():
+    if not OPENROUTER_API_KEY:
+        print("⚠️ Warning: OPENROUTER_API_KEY is not set. AI insights will not work.")
+    else:
+        print("✅ OpenRouter API Key loaded.")
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request, exc):
+    return PlainTextResponse("Too many requests. Try again later.", status_code=429)
+
 
 # CORS setup for web deployment
 origins = [
@@ -49,6 +69,18 @@ SAMPLE_SIZE = 1000
 @app.get("/")
 async def root():
     return {"message": "InsightCat API is running!", "status": "healthy"}
+
+@app.middleware("http")
+async def add_memory_guard(request: Request, call_next):
+    mem = psutil.virtual_memory()
+    if mem.available < 500 * 1024 * 1024:  # 500 MB threshold
+        return JSONResponse(status_code=503, content={"error": "System memory too low for processing"})
+    response = await call_next(request)
+    return response
+
+@app.post("/upload/")
+@limiter.limit("5/minute")  # Adjust this as needed
+async def upload_file(file: UploadFile = File(...)):
 
 @app.get("/health")
 async def health_check():
