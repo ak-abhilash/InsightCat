@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import pandas as pd
@@ -19,11 +19,10 @@ import warnings
 from typing import Optional, Dict, Any, List, Tuple
 import gc
 import psutil
-from slowapi import Limiter
+from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from fastapi.responses import PlainTextResponse
-from slowapi.decorator import limiter
 
 warnings.filterwarnings('ignore')
 
@@ -32,20 +31,19 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 app = FastAPI(title="InsightCat API", description="Data Analysis and Visualization API")
 
+# Initialize limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+# Add rate limit exception handler
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 @app.on_event("startup")
 async def verify_api_key():
     if not OPENROUTER_API_KEY:
         print("⚠️ Warning: OPENROUTER_API_KEY is not set. AI insights will not work.")
     else:
         print("✅ OpenRouter API Key loaded.")
-
-limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-
-@app.exception_handler(RateLimitExceeded)
-async def rate_limit_handler(request, exc):
-    return PlainTextResponse("Too many requests. Try again later.", status_code=429)
-
 
 # CORS setup for web deployment
 origins = [
@@ -78,14 +76,45 @@ async def add_memory_guard(request: Request, call_next):
     response = await call_next(request)
     return response
 
-@app.post("/upload/")
-@limiter.limit("5/minute")  # Adjust this as needed
-async def upload_file(file: UploadFile = File(...)):
-
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "api_key_configured": bool(OPENROUTER_API_KEY)}
 
+
+def safe_convert_types(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Attempts to convert string columns to numeric if they contain numeric data.
+    Handles common formatting like commas, dollar signs, percentages.
+    """
+    converted_df = df.copy()
+    
+    for col in converted_df.columns:
+        try:
+            if pd.api.types.is_numeric_dtype(converted_df[col]):
+                continue
+                
+            sample = converted_df[col].dropna().head(100)
+            if len(sample) > 0:
+                numeric_count = 0
+                for val in sample:
+                    try:
+                        float(str(val).replace(',', '').replace('$', '').replace('%', ''))
+                        numeric_count += 1
+                    except:
+                        pass
+
+                if numeric_count / len(sample) > 0.7:
+                    try:
+                        cleaned = converted_df[col].astype(str).str.replace(',', '').str.replace('$', '').str.replace('%', '')
+                        converted_df[col] = pd.to_numeric(cleaned, errors='ignore')
+                    except:
+                        pass
+                        
+        except Exception as e:
+            print(f"Warning: Could not process column {col}: {e}")
+            continue
+    
+    return converted_df
 
 def safe_convert_types(df: pd.DataFrame) -> pd.DataFrame:
     """
