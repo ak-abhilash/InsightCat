@@ -79,8 +79,6 @@ async def add_memory_guard(request: Request, call_next):
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "api_key_configured": bool(OPENROUTER_API_KEY)}
-
-
 def safe_convert_types(df: pd.DataFrame) -> pd.DataFrame:
     """
     Attempts to convert string columns to numeric if they contain numeric data.
@@ -115,43 +113,6 @@ def safe_convert_types(df: pd.DataFrame) -> pd.DataFrame:
             continue
     
     return converted_df
-
-def safe_convert_types(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Attempts to convert string columns to numeric if they contain numeric data.
-    Handles common formatting like commas, dollar signs, percentages.
-    """
-    converted_df = df.copy()
-    
-    for col in converted_df.columns:
-        try:
-            if pd.api.types.is_numeric_dtype(converted_df[col]):
-                continue
-                
-            sample = converted_df[col].dropna().head(100)
-            if len(sample) > 0:
-                numeric_count = 0
-                for val in sample:
-                    try:
-                        float(str(val).replace(',', '').replace('$', '').replace('%', ''))
-                        numeric_count += 1
-                    except:
-                        pass
-
-                if numeric_count / len(sample) > 0.7:
-                    try:
-                        cleaned = converted_df[col].astype(str).str.replace(',', '').str.replace('$', '').str.replace('%', '')
-                        converted_df[col] = pd.to_numeric(cleaned, errors='ignore')
-                    except:
-                        pass
-                        
-        except Exception as e:
-            print(f"Warning: Could not process column {col}: {e}")
-            continue
-    
-    return converted_df
-
-
 def get_data_overview(df: pd.DataFrame) -> Dict[str, Any]:
     """
     Generates basic statistics about the dataset structure.
@@ -243,13 +204,11 @@ def get_data_overview(df: pd.DataFrame) -> Dict[str, Any]:
             "total_columns": len(df.columns) if df is not None and not df.empty else 0,
             "column_info": []
         }
-
-
-def get_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
-    """
-    Calculates data quality metrics including missing values, duplicates,
-    and overall quality score (0-100).
-    """
+        def get_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
+            """
+            Calculates data quality metrics including missing values, duplicates,
+            and overall quality score (0-100).
+            """
     try:
         total_rows = len(df)
         total_cols = len(df.columns)
@@ -347,13 +306,11 @@ def get_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
             "status": "error",
             "columns_with_missing": {}
         }
-
-
-def analyze_column_relevance(df: pd.DataFrame, col: str, col_type: str) -> Tuple[bool, Optional[str], str]:
-    """
-    Determines if a column is suitable for visualization.
-    Returns (should_visualize, chart_type, reason).
-    """
+        def analyze_column_relevance(df: pd.DataFrame, col: str, col_type: str) -> Tuple[bool, Optional[str], str]:
+            """
+            Determines if a column is suitable for visualization.
+            Returns (should_visualize, chart_type, reason).
+            """
     try:
         non_null_count = df[col].count()
         total_count = len(df)
@@ -436,8 +393,6 @@ def analyze_column_relevance(df: pd.DataFrame, col: str, col_type: str) -> Tuple
         return False, None, f"Analysis error: {str(e)}"
     
     return False, None, "Unknown column type"
-
-
 def generate_smart_charts(df: pd.DataFrame, max_charts: int = 6) -> List[Dict[str, str]]:
     """
     Automatically generates the most relevant charts based on data analysis.
@@ -661,13 +616,11 @@ def call_llm_insights_from_prompt(prompt: str) -> Optional[str]:
     except Exception as e:
         print(f"LLM ERROR: {e}")
         return None
-
-
-def read_uploaded_file(file: UploadFile) -> pd.DataFrame:
-    """
-    Reads uploaded files (CSV, Excel, JSON) with multiple encoding fallbacks.
-    Applies memory limits and data type optimization.
-    """
+    def read_uploaded_file(file: UploadFile) -> pd.DataFrame:
+        """
+        Reads uploaded files (CSV, Excel, JSON) with multiple encoding fallbacks.
+        Applies memory limits and data type optimization.
+        """
     if not file.filename:
         raise ValueError("No filename provided")
     
@@ -694,91 +647,93 @@ def read_uploaded_file(file: UploadFile) -> pd.DataFrame:
             file.file.seek(0)
             excel_buffer = io.BytesIO(file_content)
             
-            # Try different Excel engines
+           # Try different Excel engines
             try:
                 df = pd.read_excel(excel_buffer, engine='openpyxl', nrows=MAX_ROWS)
             except Exception:
                 excel_buffer.seek(0)
                 try:
                     df = pd.read_excel(excel_buffer, engine='xlrd', nrows=MAX_ROWS)
-                except Exception:
+                except Exception:  # ✅ Correct indentation - aligned with the try above
                     excel_buffer.seek(0)
                     df = pd.read_excel(excel_buffer, nrows=MAX_ROWS)
-            
+
         elif file_extension == 'json':
-            content = file.file.read()
-            file.file.seek(0)
-            
-            # Handle different text encodings
-            if isinstance(content, bytes):
-                try:
-                    content_str = content.decode('utf-8')
-                except UnicodeDecodeError:
-                    content_str = content.decode('latin-1')
-            else:
-                content_str = content
-            
-            content_str = content_str.strip()
-            
-            try:
-                json_data = json.loads(content_str)
-            except json.JSONDecodeError:
-                # Try line-by-line JSON (JSONL format)
-                try:
-                    json_objects = []
-                    for line in content_str.split('\n'):
-                        line = line.strip()
-                        if line:
-                            json_objects.append(json.loads(line))
-                    json_data = json_objects
-                except json.JSONDecodeError:
-                    raise ValueError(f"Invalid JSON format. Please ensure your JSON file is properly formatted.")
-            
-            # Convert JSON to DataFrame with different structure handling
-            try:
-                if isinstance(json_data, list):
-                    if len(json_data) == 0:
-                        raise ValueError("JSON file contains an empty array")
-                    
-                    if len(json_data) > MAX_ROWS:
-                        json_data = json_data[:MAX_ROWS]
-                    
-                    if isinstance(json_data[0], dict):
-                        df = pd.DataFrame(json_data)
-                    else:
-                        df = pd.DataFrame(json_data, columns=['value'])
+                content = file.file.read()
+                file.file.seek(0)
                 
-                elif isinstance(json_data, dict):
+                # Handle different text encodings
+                if isinstance(content, bytes):
                     try:
-                        df = pd.DataFrame(json_data)
-                        if len(df) > MAX_ROWS:
-                            df = df.head(MAX_ROWS)
-                    except ValueError:
-                        # Flatten nested JSON structure
-                        df = pd.json_normalize(json_data)
-                        if len(df) > MAX_ROWS:
-                            df = df.head(MAX_ROWS)
-                
+                        content_str = content.decode('utf-8')
+                    except UnicodeDecodeError:
+                        content_str = content.decode('latin-1')
                 else:
-                    df = pd.DataFrame([json_data], columns=['value'])
+                    content_str = content
+            
+                content_str = content_str.strip()
+                
+                try:
+                    json_data = json.loads(content_str)
+                except json.JSONDecodeError:
+                    # Try line-by-line JSON (JSONL format)
+                    try:
+                        json_objects = []
+                        for line in content_str.split('\n'):
+                            line = line.strip()
+                            if line:
+                                json_objects.append(json.loads(line))
+                        json_data = json_objects
+                    except json.JSONDecodeError:
+                        raise ValueError(f"Invalid JSON format. Please ensure your JSON file is properly formatted.")
+                
+                # Convert JSON to DataFrame with different structure handling
+                try:
+                    if isinstance(json_data, list):
+                        if len(json_data) == 0:
+                            raise ValueError("JSON file contains an empty array")
+                        
+                        if len(json_data) > MAX_ROWS:
+                            json_data = json_data[:MAX_ROWS]
+                            was_truncated = True
+                        
+                        if isinstance(json_data[0], dict):
+                            df = pd.DataFrame(json_data)
+                        else:
+                            df = pd.DataFrame(json_data, columns=['value'])
                     
-            except Exception as conversion_error:
-                raise ValueError(f"Unable to convert JSON to tabular format: {str(conversion_error)}")
-        
+                    elif isinstance(json_data, dict):
+                        try:
+                            df = pd.DataFrame(json_data)
+                            if len(df) > MAX_ROWS:
+                                df = df.head(MAX_ROWS)
+                                was_truncated = True
+                        except ValueError:
+                            # Flatten nested JSON structure
+                            df = pd.json_normalize(json_data)
+                            if len(df) > MAX_ROWS:
+                                df = df.head(MAX_ROWS)
+                                was_truncated = True
+                    
+                    else:
+                        df = pd.DataFrame([json_data], columns=['value'])
+                        
+                except Exception as conversion_error:
+                    raise ValueError(f"Unable to convert JSON to tabular format: {str(conversion_error)}")
+            
         else:
             raise ValueError(f"Unsupported file format: .{file_extension}. Please upload CSV, Excel (.xlsx/.xls), or JSON files.")
-    
     except Exception as e:
         if "Unsupported file format" in str(e) or "Invalid JSON format" in str(e) or "Unable to" in str(e):
             raise e
         else:
             raise ValueError(f"Error reading {file_extension.upper()} file: {str(e)}")
-    
-    # Apply column limit
-    if len(df.columns) > MAX_COLS:
-        df = df.iloc[:, :MAX_COLS]
-    
-    return df
+        
+        # Apply column limit
+        if len(df.columns) > MAX_COLS:
+            df = df.iloc[:, :MAX_COLS]
+        
+        return df, was_truncated
 
 
 @app.post("/upload/")
