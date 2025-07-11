@@ -1,4 +1,8 @@
-<h1 align="center">🐱 InsightCat</h1>
+<h1 align="center">
+  <img src="https://raw.githubusercontent.com/ak-abhilash/InsightCat/refs/heads/main/logo.png" alt="InsightCat Logo" width="80">
+  <br>
+  InsightCat
+</h1>
 <p align="center">Your AI-powered data sidekick for instant insights, quality checks, and smart visualizations. Just upload your data and let InsightCat do the rest.</p>
 <p align="center">
   <img src="https://img.shields.io/badge/building%20in-public-brightgreen" alt="build in public">
