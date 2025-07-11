@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="https://raw.githubusercontent.com/ak-abhilash/InsightCat/refs/heads/main/logo.png" alt="InsightCat Logo" width="80">
+  <img src="https://raw.githubusercontent.com/ak-abhilash/InsightCat/refs/heads/main/logo.png" alt="InsightCat Logo" width="80" loading="lazy">
   <br>
   InsightCat
 </h1>
@@ -78,7 +78,7 @@ This is an open-source project to help data learners, educators, and developers 
 ### Want to contribute?
 1. Fork the repo
 2. Clone locally  
-3. Submit PRs with your ideas
+3. Create a branch, make your changes, and submit a pull request
 
 **Ideas welcome:** New chart types, better AI prompts, UI improvements, more file formats
 
