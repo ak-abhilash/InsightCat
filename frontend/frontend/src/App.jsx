@@ -506,13 +506,10 @@ const App = () => {
                       </div>
                     </Button>
                   </div>
-                  
+
                     {/* Enhanced loading message */}
                         {loading && (
                           <div className="mt-4 text-center space-y-2">
-                            <p className="text-slate-300 text-sm">
-                              🔍 Analyzing your data with AI...
-                            </p>
                             <p className="text-slate-400 text-xs">
                               This may take 30-60 seconds on our free service. Thanks for your patience!
                             </p>
