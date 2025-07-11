@@ -953,11 +953,14 @@ Please write **5 cool, casual, human-friendly insights** about the data. Follow 
             "insights": insight_blocks,
             "charts": charts,
             "overview": overview,
-            "data_quality": data_quality, 
+            "data_quality": {
+                **data_quality,
+                "truncated_to_50k": original_shape[0] > MAX_ROWS
+            },
             "file_info": {
                 "filename": file.filename,
-                "rows": overview.get("total_rows", 0),
-                "columns": overview.get("total_columns", 0),
+                "rows": original_shape[0],  
+                "columns": original_shape[1],
                 "file_type": file.filename.split('.')[-1].upper()
             }
         }
@@ -977,6 +980,7 @@ Please write **5 cool, casual, human-friendly insights** about the data. Follow 
                 "details": str(e)[:200] 
             }
         )
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
