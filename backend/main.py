@@ -41,9 +41,9 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 @app.on_event("startup")
 async def verify_api_key():
     if not OPENROUTER_API_KEY:
-        print("⚠️ Warning: OPENROUTER_API_KEY is not set. AI insights will not work.")
+        print("Warning: OPENROUTER_API_KEY is not set. AI insights will not work.")
     else:
-        print("✅ OpenRouter API Key loaded.")
+        print("OpenRouter API Key loaded.")
 
 # CORS setup for web deployment
 origins = [

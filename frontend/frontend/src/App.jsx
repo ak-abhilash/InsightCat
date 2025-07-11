@@ -192,7 +192,7 @@ const App = () => {
                 <span className="text-white font-medium">
                   {dataQuality.total_rows?.toLocaleString()}
                   {dataQuality.truncated_to_50k && (
-                    <span className="ml-2 text-yellow-400 text-xs">(Only first 50,000 rows processed)</span>
+                    <span className="ml-2 text-yellow-400 text-xs">(We're full after 50K rows!)</span>
                   )}
                 </span>
               </div>
