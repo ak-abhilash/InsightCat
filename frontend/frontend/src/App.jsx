@@ -189,7 +189,12 @@ const App = () => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Total Rows:</span>
-                <span className="text-white font-medium">{dataQuality.total_rows?.toLocaleString()}</span>
+                <span className="text-white font-medium">
+                  {dataQuality.total_rows?.toLocaleString()}
+                  {dataQuality.truncated_to_50k && (
+                    <span className="ml-2 text-yellow-400 text-xs">(Only first 50,000 rows processed)</span>
+                  )}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Total Columns:</span>
