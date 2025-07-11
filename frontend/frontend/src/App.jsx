@@ -463,7 +463,7 @@ const App = () => {
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
-                  className={`relative border-2 border-dashed rounded-xl p-4 transition-all duration-300 cursor-pointer text-center space-y-2 ${
+                  className={`relative border-2 border-dashed rounded-xl p-6 transition-all duration-300 cursor-pointer text-center space-y-2 ${
                     isDragging ? "border-blue-500 bg-slate-800" : "border-slate-600 bg-slate-800/30 hover:bg-slate-800/50"
                   }`}
                 >
