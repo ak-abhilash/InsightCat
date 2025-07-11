@@ -451,7 +451,7 @@ const App = () => {
           </div>
 
           {/* Upload Section */}
-          <Card className="bg-slate-900/80 backdrop-blur-sm border-slate-700/50 shadow-2xl">
+          <Card className="bg-slate-900/80 backdrop-blur-sm border-slate-700/50 shadow-2xl max-w-2xl mx-auto">
             <CardContent className="p-8">
               <div className="space-y-6">
                 <div className="text-center">
@@ -463,7 +463,7 @@ const App = () => {
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
-                  className={`relative border-2 border-dashed rounded-xl p-4 transition-all duration-300 cursor-pointer text-center space-y-2 max-w-md mx-auto ${
+                  className={`relative border-2 border-dashed rounded-xl p-4 transition-all duration-300 cursor-pointer text-center space-y-3 ${
                     isDragging ? "border-blue-500 bg-slate-800" : "border-slate-600 bg-slate-800/30 hover:bg-slate-800/50"
                   }`}
                 >
@@ -483,27 +483,30 @@ const App = () => {
                       Selected File: <span className="text-blue-400 font-medium">{file.name}</span>
                     </div>
                   )}
-                </div>
-                <Button
-                  onClick={handleUpload}
-                  disabled={loading || !file}
-                  className="group relative bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-slate-700 disabled:to-slate-700 text-white font-medium px-8 py-2.5 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:shadow-none"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 rounded-lg blur opacity-0 group-hover:opacity-30 transition-opacity duration-300"></div>
-                  <div className="relative flex items-center justify-center">
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <UploadCloud className="mr-2 h-4 w-4" />
-                        Generate Insights
-                      </>
-                    )}
+
+                  <div className="pt-2">
+                    <Button
+                      onClick={handleUpload}
+                      disabled={loading || !file}
+                      className="group relative bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-slate-700 disabled:to-slate-700 text-white font-medium px-8 py-2.5 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:shadow-none"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 rounded-lg blur opacity-0 group-hover:opacity-30 transition-opacity duration-300"></div>
+                      <div className="relative flex items-center justify-center">
+                        {loading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            <UploadCloud className="mr-2 h-4 w-4" />
+                            Generate Insights
+                          </>
+                        )}
+                      </div>
+                    </Button>
                   </div>
-                </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
