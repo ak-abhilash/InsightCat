@@ -686,16 +686,16 @@ def read_uploaded_file(file: UploadFile) -> pd.DataFrame:
             # Try multiple encodings for CSV files
             try:
                 df = pd.read_csv(file.file, encoding='utf-8', low_memory=False, 
-               dtype=str, on_bad_lines='skip', keep_default_na=True, na_values=[''])
+               on_bad_lines='skip', keep_default_na=True, na_values=[''])
             except UnicodeDecodeError:
                 file.file.seek(0)
                 try:
                     df = pd.read_csv(file.file, encoding='latin-1', low_memory=False,
-                                   dtype=str, on_bad_lines='skip', keep_default_na=True, na_values=[''])
+                                   on_bad_lines='skip', keep_default_na=True, na_values=[''])
                 except Exception:
                     file.file.seek(0)
                     df = pd.read_csv(file.file, encoding='cp1252', low_memory=False,
-                                   dtype=str, on_bad_lines='skip', keep_default_na=True, na_values=[''])
+                                   on_bad_lines='skip', keep_default_na=True, na_values=[''])
         
         elif file_extension in ['xlsx', 'xls']:
             file_content = file.file.read()
