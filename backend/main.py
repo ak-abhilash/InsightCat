@@ -158,9 +158,17 @@ def get_data_overview(df: pd.DataFrame) -> Dict[str, Any]:
     Returns column info with types, null counts, and unique values.
     """
     try:
+        total_missing = 0
+        try:
+            total_missing = int(df.isnull().sum().sum())
+        except Exception as e:
+            print(f"Warning: Could not calculate total missing values: {e}")
+
         overview = {
             "total_rows": int(len(df)),
             "total_columns": int(len(df.columns)),
+            "total_missing_values": total_missing,
+            "missing_percentage": round((total_missing / (len(df) * len(df.columns))) * 100, 1) if len(df) > 0 and len(df.columns) > 0 else 0,
             "column_info": []
         }
         
