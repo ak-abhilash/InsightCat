@@ -506,7 +506,25 @@ const App = () => {
                       </div>
                     </Button>
                   </div>
-                </div>
+                  
+                    {/* Enhanced loading message */}
+                        {loading && (
+                          <div className="mt-4 text-center space-y-2">
+                            <p className="text-slate-300 text-sm">
+                              🔍 Analyzing your data with AI...
+                            </p>
+                            <p className="text-slate-400 text-xs">
+                              This may take 30-60 seconds on our free service. Thanks for your patience!
+                            </p>
+                            <div className="flex items-center justify-center gap-1 mt-2">
+                              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                              <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse delay-100"></div>
+                              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse delay-200"></div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+  
               </div>
             </CardContent>
           </Card>
