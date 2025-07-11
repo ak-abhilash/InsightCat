@@ -678,7 +678,7 @@ def read_uploaded_file(file: UploadFile) -> pd.DataFrame:
             # Try multiple encodings for CSV files
             try:
                 df = pd.read_csv(file.file, encoding='utf-8', low_memory=False, 
-                               nrows=MAX_ROWS, dtype=str, on_bad_lines='skip')
+                       dtype=str, on_bad_lines='skip')
             except UnicodeDecodeError:
                 file.file.seek(0)
                 try:
@@ -696,7 +696,7 @@ def read_uploaded_file(file: UploadFile) -> pd.DataFrame:
             
             # Try different Excel engines
             try:
-                df = pd.read_excel(excel_buffer, engine='openpyxl', nrows=MAX_ROWS)
+                df = pd.read_excel(excel_buffer, engine='openpyxl')
             except Exception:
                 excel_buffer.seek(0)
                 try:
@@ -799,10 +799,16 @@ async def upload_file(file: UploadFile = File(...)):
         if df.empty:
             return JSONResponse(status_code=400, content={"error": "Uploaded file contains no data."})
 
-        # Clean empty rows and columns
+        # Store original shape before any processing
         original_shape = df.shape
+
+        # Apply row limit AFTER getting original shape
+        was_truncated = len(df) > MAX_ROWS
+        if was_truncated:
+            df = df.head(MAX_ROWS)
+
+        # Clean empty rows and columns
         df = df.dropna(how='all').dropna(axis=1, how='all')
-        
         if df.empty:
             return JSONResponse(status_code=400, content={"error": "No valid data found after cleaning."})
 
@@ -955,7 +961,7 @@ Please write **5 cool, casual, human-friendly insights** about the data. Follow 
             "overview": overview,
             "data_quality": {
                 **data_quality,
-                "truncated_to_50k": original_shape[0] > MAX_ROWS
+                "truncated_to_50k": was_truncated
             },
             "file_info": {
                 "filename": file.filename,
