@@ -463,14 +463,13 @@ const App = () => {
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
-                  className={`relative border-2 border-dashed rounded-xl p-6 transition-all duration-300 cursor-pointer text-center space-y-4 ${
+                  className={`relative border-2 border-dashed rounded-xl p-4 transition-all duration-300 cursor-pointer text-center space-y-2 ${
                     isDragging ? "border-blue-500 bg-slate-800" : "border-slate-600 bg-slate-800/30 hover:bg-slate-800/50"
                   }`}
                 >
-                  <UploadCloud className="mx-auto h-8 w-8 text-blue-400" />
-                  <p className="text-white font-semibold">Drag & drop your file here</p>
-                  <p className="text-slate-400 text-sm">or browse from your device</p>
-
+                  <UploadCloud className="mx-auto h-6 w-6 text-blue-400" />
+                  <p className="text-white font-semibold text-sm">Drag & drop your file here</p>
+                  <p className="text-slate-400 text-xs">or browse from your device</p>
                   <Input
                     type="file"
                     accept=".csv,.xlsx,.xls,.json"
