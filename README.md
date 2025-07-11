@@ -1,4 +1,8 @@
-<h1 align="center">🐱 InsightCat</h1>
+<h1 align="center">
+  <img src="https://raw.githubusercontent.com/ak-abhilash/InsightCat/refs/heads/main/logo.png" alt="InsightCat Logo" width="80" loading="lazy">
+  <br>
+  InsightCat
+</h1>
 <p align="center">Your AI-powered data sidekick for instant insights, quality checks, and smart visualizations. Just upload your data and let InsightCat do the rest.</p>
 <p align="center">
   <img src="https://img.shields.io/badge/building%20in-public-brightgreen" alt="build in public">
@@ -74,7 +78,7 @@ This is an open-source project to help data learners, educators, and developers 
 ### Want to contribute?
 1. Fork the repo
 2. Clone locally  
-3. Submit PRs with your ideas
+3. Create a branch, make your changes, and submit a pull request
 
 **Ideas welcome:** New chart types, better AI prompts, UI improvements, more file formats
 
@@ -95,3 +99,9 @@ This project is licensed under the MIT License.
   <b>Ready to unlock insights from your data? Give InsightCat a try!</b><br>
   <a href="https://insight-cat.vercel.app">🚀 Try InsightCat Now</a>
 </p>
+
+## ⚠️ Ethical Use Disclaimer
+
+This software is intended to be used for ethical and lawful purposes only.  
+The author (Abhilash Krishna) shall not be held responsible for any misuse of the software, including but not limited to unethical, illegal, or harmful activities.  
+By using this software, you agree to take full responsibility for your actions and any consequences arising from them.
