@@ -28,6 +28,7 @@ const App = () => {
   const [dataQuality, setDataQuality] = useState(null);
   const [fileInfo, setFileInfo] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [selectedChart, setSelectedChart] = useState(null);
 
   const handleFileChange = (e) => {
@@ -37,6 +38,34 @@ const App = () => {
     setDataQuality(null);
     setFileInfo(null);
     setSelectedChart(null);
+  };
+  
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) {
+      setFile(droppedFile);
+      setInsights("");
+      setCharts([]);
+      setDataQuality(null);
+      setFileInfo(null);
+      setSelectedChart(null);
+    }
   };
 
   const downloadChart = () => {
@@ -197,7 +226,6 @@ const App = () => {
             </div>
           </div>
         </div>
-
         {/* Data Issues */}
         <div className="grid gap-6 md:grid-cols-2">
           {/* Missing Values */}
@@ -401,10 +429,14 @@ const App = () => {
           {/* Header */}
           <div className="text-center space-y-4 py-8">
             <div className="inline-flex items-center gap-3 bg-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-full px-6 py-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg">
-                <TrendingUp className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center">
+                <img 
+                  src="https://raw.githubusercontent.com/ak-abhilash/InsightCat/refs/heads/main/logo.png" 
+                  alt="InsightCat Logo" 
+                  className="w-full h-full object-contain"
+                />
               </div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-pink-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-white bg-clip-text text-transparent">
                 InsightCat
               </h1>
             </div>
@@ -422,37 +454,42 @@ const App = () => {
                   <p className="text-slate-400 text-sm">Upload a CSV, Excel, or JSON file to get started with your data analysis</p>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="relative">
-                    <Input
-                      type="file"
-                      accept=".csv,.xlsx,.xls,.json"
-                      onChange={handleFileChange}
-                      className="cursor-pointer bg-slate-800/50 text-white border-slate-600/50 focus:border-blue-500/50 focus:ring-blue-500/20 file:bg-slate-700 file:text-slate-300 file:border-0 file:rounded-md file:px-4 file:py-2 file:mr-4 hover:bg-slate-700/50 transition-colors"
-                    />
-                  </div>
-
-                  <Button
-                    onClick={handleUpload}
-                    disabled={loading || !file}
-                    className="group relative bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-slate-700 disabled:to-slate-700 text-white font-medium px-8 py-2.5 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:shadow-none"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 rounded-lg blur opacity-0 group-hover:opacity-30 transition-opacity duration-300"></div>
-                    <div className="relative flex items-center justify-center">
-                      {loading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Analyzing...
-                        </>
-                      ) : (
-                        <>
-                          <UploadCloud className="mr-2 h-4 w-4" />
-                          Generate Insights
-                        </>
-                      )}
-                    </div>
-                  </Button>
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+                    isDragging ? "border-blue-500 bg-slate-800" : "border-slate-600 bg-slate-800/30"
+                  }`}
+                >
+                  <Input
+                    type="file"
+                    accept=".csv,.xlsx,.xls,.json"
+                    onChange={handleFileChange}
+                    className="bg-transparent text-white border-none file:bg-slate-700 file:text-white"
+                  />
+                  <p className="text-slate-400 text-sm mt-2">or drag and drop here</p>
                 </div>
+                <Button
+                  onClick={handleUpload}
+                  disabled={loading || !file}
+                  className="group relative bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-slate-700 disabled:to-slate-700 text-white font-medium px-8 py-2.5 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:shadow-none"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 rounded-lg blur opacity-0 group-hover:opacity-30 transition-opacity duration-300"></div>
+                  <div className="relative flex items-center justify-center">
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud className="mr-2 h-4 w-4" />
+                        Generate Insights
+                      </>
+                    )}
+                  </div>
+                </Button>
               </div>
             </CardContent>
           </Card>
