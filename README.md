@@ -99,3 +99,9 @@ This project is licensed under the MIT License.
   <b>Ready to unlock insights from your data? Give InsightCat a try!</b><br>
   <a href="https://insight-cat.vercel.app">🚀 Try InsightCat Now</a>
 </p>
+
+## ⚠️ Ethical Use Disclaimer
+
+This software is intended to be used for ethical and lawful purposes only.  
+The author (Abhilash Krishna) shall not be held responsible for any misuse of the software, including but not limited to unethical, illegal, or harmful activities.  
+By using this software, you agree to take full responsibility for your actions and any consequences arising from them.
