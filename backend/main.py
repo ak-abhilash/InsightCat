@@ -701,17 +701,20 @@ def read_uploaded_file(file: UploadFile) -> pd.DataFrame:
             file_content = file.file.read()
             file.file.seek(0)
             excel_buffer = io.BytesIO(file_content)
-            
-            # Try different Excel engines
+
+            # Try reading with different engines
             try:
-                df = pd.read_excel(excel_buffer, engine='openpyxl')
-            except Exception:
+                df = pd.read_excel(excel_buffer, engine='openpyxl', sheet_name=0)
+            except Exception as e1:
                 excel_buffer.seek(0)
                 try:
-                    df = pd.read_excel(excel_buffer, engine='xlrd', nrows=MAX_ROWS)
-                except Exception:
+                    df = pd.read_excel(excel_buffer, engine='xlrd', sheet_name=0, nrows=MAX_ROWS)
+                except Exception as e2:
                     excel_buffer.seek(0)
-                    df = pd.read_excel(excel_buffer, nrows=MAX_ROWS)
+                    try:
+                        df = pd.read_excel(excel_buffer, sheet_name=0, nrows=MAX_ROWS)
+                    except Exception as e3:
+                        raise ValueError(f"Unable to read Excel file: {e3 or e2 or e1}")
             
         elif file_extension == 'json':
             content = file.file.read()
@@ -776,6 +779,16 @@ def read_uploaded_file(file: UploadFile) -> pd.DataFrame:
         else:
             raise ValueError(f"Unsupported file format: .{file_extension}. Please upload CSV, Excel (.xlsx/.xls), or JSON files.")
     
+        if df is None or df.empty:
+            raise ValueError("Uploaded file contains no data or couldn't be read properly.")
+
+        df = df.dropna(how='all').dropna(axis=1, how='all')
+        if df.empty:
+            raise ValueError("No valid data found after cleaning.")
+
+        if len(df.columns) > MAX_COLS:
+            df = df.iloc[:, :MAX_COLS]
+            
     except Exception as e:
         if "Unsupported file format" in str(e) or "Invalid JSON format" in str(e) or "Unable to" in str(e):
             raise e

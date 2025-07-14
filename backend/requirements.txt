@@ -10,4 +10,6 @@ python-multipart
 tabulate
 psutil
 slowapi
+openpyxl
+xlrd==1.2.0
 # Add any other dependencies you need for your FastAPI application
