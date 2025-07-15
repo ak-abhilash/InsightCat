@@ -80,6 +80,9 @@ async def add_memory_guard(request: Request, call_next):
 async def health_check():
     return {"status": "healthy", "api_key_configured": bool(OPENROUTER_API_KEY)}
 
+@app.get("/uptime", response_class=PlainTextResponse)
+def uptime_ping():
+    return "OK"
 
 def safe_convert_types(df: pd.DataFrame) -> pd.DataFrame:
     """
